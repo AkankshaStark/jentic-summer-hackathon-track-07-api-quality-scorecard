@@ -1,352 +1,139 @@
-# Track 07 – API Quality Scorecard
+API Quality Scorecard Tool
+This project is a command-line tool designed to analyze and score the quality of an OpenAPI Specification (OAS) file. The tool evaluates the API design against a comprehensive framework, providing a detailed report with an overall score, category breakdowns, and actionable recommendations for improvement.
+The goal is to help developers and technical writers identify areas where their API documentation and design can be improved to enhance clarity, usability, and consistency for consumers.
+Quality Scoring Framework
+The tool scores the API across five key categories, with a total possible score of 100 points.
+Category
+Max Score
+Description
+Documentation Quality
+25
+Assesses the presence and quality of descriptions, summaries, examples, and tags for operations and parameters.
+Schema Completeness
+25
+Evaluates how well request and response schemas are defined, including parameter types and required fields.
+Error Handling
+20
+Checks for proper documentation of 4xx and 5xx responses, including error schemas and examples.
+Agent Usability
+20
+Measures clarity and consistency through operation IDs, discoverability via tags, and overall complexity.
+Authentication Clarity
+10
+Scores the documentation of security schemes, OAuth scopes, and authentication examples.
+
+How to Use
+1. Project Setup
+Ensure your project structure matches the following:
+.
+├── scorecard/
+│   ├── analyzer.py
+│   ├── parser.py
+│   ├── reporter.py
+└── main.py
+
+2. Dependencies
+This tool requires several Python libraries. You can install them using pip:
+pip install PyYAML jsonschema openapi-spec-validator
+
+3. Running the Tool
+You can run the analysis on any OpenAPI file (YAML or JSON) by providing the file path as an argument.
+First, create a main.py file to orchestrate the analysis.
+# main.py
+
+import sys
+from scorecard.parser import OpenAPIParser
+from scorecard.analyzer import QualityAnalyzer
+from scorecard.reporter import Reporter
+
+def main():
+    """
+    Main entry point for the API quality scorecard tool.
+    """
+    if len(sys.argv) < 2:
+        print("Usage: python main.py <path_to_openapi_spec>")
+        sys.exit(1)
+
+    spec_path = sys.argv[1]
+    
+    # 1. Parse and validate the specification
+    print(f"Analyzing specification: {spec_path}...")
+    parser = OpenAPIParser(spec_path)
+    if not parser.validate_spec():
+        print("Invalid specification. Please fix the errors before running the analysis.")
+        sys.exit(1)
+        
+    spec_title = parser.get_summary_and_description().get('title', 'Untitled API')
+
+    # 2. Run the analysis
+    analyzer = QualityAnalyzer(parser)
+    report_data = analyzer.analyze()
+    
+    # 3. Generate reports
+    reporter = Reporter(report_data, spec_title)
+
+    # Generate and print a Markdown report to the console
+    markdown_report = reporter.generate_markdown_summary()
+    print("\n--- Markdown Report ---")
+    print(markdown_report)
+
+    # Generate and save an HTML report
+    html_report = reporter.generate_html_report()
+    html_filename = f"{spec_title.replace(' ', '-').lower()}_report.html"
+    with open(html_filename, "w", encoding="utf-8") as f:
+        f.write(html_report)
+    print(f"\n--- HTML Report ---")
+    print(f"Saved a detailed HTML report to ./{html_filename}")
+    
+    # Generate and save a JSON report
+    json_report = reporter.generate_json_report()
+    json_filename = f"{spec_title.replace(' ', '-').lower()}_report.json"
+    with open(json_filename, "w", encoding="utf-8") as f:
+        f.write(json_report)
+    print(f"\n--- JSON Report ---")
+    print(f"Saved a machine-readable JSON report to ./{json_filename}")
+
+
+if __name__ == "__main__":
+    main()
+
+Then, from the root directory, run the script with your OpenAPI file:
+python main.py path/to/your/spec.yaml
 
-**Goal**: Build a tool that evaluates OpenAPI specifications for agent-readiness, providing scores and actionable recommendations for improving API usability by AI agents.
+Example Output
+The tool will generate a detailed summary similar to this Markdown report:
+# API Quality Scorecard: Untitled API
 
-**Time Estimate**: 3-4 hours  
-**Difficulty**: Beginner to Intermediate  
-**Perfect for**: Developers interested in API quality, automation, and making APIs more accessible to AI agents
+**Overall Score: 85/100**
 
-## What You'll Build
+---
 
-An automated scorecard system that:
-- **Analyzes OpenAPI specifications** for completeness and quality
-- **Scores APIs** on agent-readiness criteria
-- **Provides actionable recommendations** for improvement
-- **Generates reports** that help API developers optimize for AI usage
+### **Category Scores**
+| Category | Score | Max Score |
+| :--- | :--- | :--- |
+| Documentation | 22 | 25 |
+| Schemas | 25 | 25 |
+| Error Handling | 15 | 20 |
+| Usability | 18 | 20 |
+| Authentication | 5 | 10 |
 
-**Your deliverable**: A tool that can take any OpenAPI spec and produce a detailed quality report with scores, issues, and improvement suggestions.
+---
 
-## Prerequisites
+### **Analysis Summary**
+* **Total Operations:** 10
 
-### Technical Requirements
-- Python 3.11+
-- Understanding of OpenAPI/Swagger specifications
-- Basic JSON/YAML processing knowledge
-- Familiarity with API documentation concepts
+---
 
-### Knowledge Prerequisites
-- Understanding of REST API principles
-- Basic familiarity with OpenAPI specification structure
-- Knowledge of what makes APIs usable by developers and agents
-- No advanced programming experience required
+### **Issues Found**
+* The 'GET /users' operation is missing a detailed description.
+* The 'POST /items' operation is missing documentation for common client (4xx) and server (5xx) errors.
+* The 'GET /items' operation has a high number of parameters, which may indicate high complexity.
 
-## The Problem
+---
 
-Many APIs are **technically valid** but **poorly suited for AI agents**:
-- **Missing descriptions** make it hard for agents to understand purpose
-- **Incomplete schemas** prevent proper request/response handling
-- **Poor error documentation** leads to agent confusion
-- **Complex authentication** without clear guidance
-- **Inconsistent naming** makes operations hard to discover
+### **Actionable Recommendations**
+* Add a detailed 'description' for the 'GET /users' operation.
+* Define schemas for common error responses (4xx, 5xx) in 'POST /items'.
+* Add a 'tags' field to the 'GET /items' operation to group related endpoints.
+* Specify 'required' fields in the request schema for 'POST /users'.
 
-**Your tool will identify these issues and suggest fixes.**
-
-## Getting Started (30 minutes)
-
-### 1. Environment Setup
-```bash
-# Create project directory
-mkdir api-quality-scorecard
-cd api-quality-scorecard
-
-# Set up Python environment
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 2. Understand the Scoring Framework
-Your scorecard will evaluate APIs across key dimensions:
-
-**Core Categories (100 points total)**:
-- **Documentation Quality** (25 points) - Descriptions, examples, clarity
-- **Schema Completeness** (25 points) - Request/response schemas, types
-- **Error Handling** (20 points) - Error responses, status codes
-- **Agent Usability** (20 points) - Naming, discoverability, complexity
-- **Authentication Clarity** (10 points) - Auth documentation, examples
-
-### 3. Test with Sample APIs
-```bash
-# Test with a simple API spec
-python scorecard.py examples/simple-api.yaml
-
-# Test with a complex API spec
-python scorecard.py examples/complex-api.yaml
-
-# Generate detailed report
-python scorecard.py examples/github-api.yaml --detailed --output report.html
-```
-
-## Your Implementation Tasks
-
-### Phase 1: Basic Scorecard Engine (90 minutes)
-
-#### Task 1: Build the OpenAPI Parser
-Create a parser that can:
-- Load OpenAPI specs from YAML/JSON files
-- Validate basic structure and required fields
-- Extract key components (paths, schemas, security)
-- Handle different OpenAPI versions (3.0+)
-
-**Deliverable**: A parser that can load and understand OpenAPI specifications.
-
-**Files to implement**:
-- `scorecard/parser.py` - OpenAPI parsing and validation
-- Test with: `python test_parser.py`
-
-#### Task 2: Implement Core Scoring Logic
-Build scoring functions for each category:
-
-**Documentation Quality**:
-- Check for operation descriptions
-- Verify parameter descriptions
-- Look for examples and summaries
-- Assess description quality (length, clarity)
-
-**Schema Completeness**:
-- Validate request body schemas
-- Check response schemas for all status codes
-- Verify parameter types and constraints
-- Look for required fields definitions
-
-**Deliverable**: Working scoring functions that analyze API specs.
-
-#### Task 3: Basic Report Generation
-Create a simple report generator that:
-- Calculates overall score and category scores
-- Lists specific issues found
-- Provides basic recommendations
-- Outputs results in readable format
-
-**Deliverable**: A tool that produces basic quality reports.
-
-### Phase 2: Advanced Analysis (75 minutes)
-
-#### Task 4: Agent-Specific Scoring
-Implement agent-focused evaluation criteria:
-
-**Operation Naming**:
-- Check for clear, descriptive operation IDs
-- Evaluate path structure and consistency
-- Look for standard naming conventions
-
-**Discoverability**:
-- Assess tag usage and organization
-- Check for searchable descriptions
-- Evaluate parameter naming clarity
-
-**Complexity Analysis**:
-- Identify overly complex operations
-- Check for reasonable parameter counts
-- Assess nested schema depth
-
-**Deliverable**: Enhanced scoring that considers AI agent needs.
-
-#### Task 5: Error Handling Analysis
-Build comprehensive error evaluation:
-- Check for documented error responses
-- Verify status code coverage (4xx, 5xx)
-- Look for error schema definitions
-- Assess error message clarity
-
-#### Task 6: Authentication Assessment
-Evaluate auth documentation quality:
-- Check security scheme completeness
-- Look for authentication examples
-- Assess auth flow documentation
-- Verify scope definitions for OAuth
-
-**Deliverable**: Complete scoring across all dimensions.
-
-### Phase 3: Reporting and Recommendations (60 minutes)
-
-#### Task 7: Detailed Report Generation
-Create comprehensive reporting:
-- HTML reports with charts and visualizations
-- JSON output for programmatic use
-- Markdown summaries for documentation
-- Comparison reports for multiple APIs
-
-#### Task 8: Actionable Recommendations
-Generate specific improvement suggestions:
-- Identify missing descriptions with suggestions
-- Recommend schema improvements
-- Suggest better naming conventions
-- Provide examples of good practices
-
-#### Task 9: Benchmarking and Trends
-Add comparative analysis:
-- Compare against best-practice examples
-- Track improvements over time
-- Identify common issues across APIs
-- Generate industry benchmarks
-
-**Deliverable**: Professional-quality reports with actionable insights.
-
-## Testing Your Scorecard
-
-### Validation with Known APIs
-Test your scorecard with APIs of varying quality:
-
-```bash
-# Test with well-documented APIs
-python scorecard.py test-specs/stripe-api.yaml
-python scorecard.py test-specs/github-api.yaml
-
-# Test with problematic APIs
-python scorecard.py test-specs/minimal-api.yaml
-python scorecard.py test-specs/complex-api.yaml
-
-# Batch testing
-python batch_test.py test-specs/
-```
-
-### Quality Metrics to Verify
-- **High-quality APIs** should score 80+ points
-- **Well-documented operations** should have clear descriptions
-- **Complete schemas** should have all required fields defined
-- **Good error handling** should cover common failure cases
-
-### Edge Case Testing
-```bash
-# Test with invalid/incomplete specs
-python scorecard.py test-specs/invalid-spec.yaml
-
-# Test with very large APIs
-python scorecard.py test-specs/large-api.yaml
-
-# Test with different OpenAPI versions
-python scorecard.py test-specs/openapi-2.0.yaml
-```
-
-## Deliverables
-
-### Minimum Viable Product
-- [ ] **Working scorecard** that analyzes basic API quality
-- [ ] **Scoring system** across key dimensions
-- [ ] **Simple report generation** with scores and issues
-- [ ] **CLI interface** for easy usage
-- [ ] **Test suite** with example APIs
-
-### Enhanced Implementation
-- [ ] **Detailed recommendations** for improvement
-- [ ] **Multiple output formats** (HTML, JSON, Markdown)
-- [ ] **Comparative analysis** against benchmarks
-- [ ] **Batch processing** for multiple APIs
-- [ ] **Historical tracking** of quality improvements
-
-### Professional Quality
-- [ ] **Visual reporting** with charts and graphs
-- [ ] **Integration capabilities** with CI/CD pipelines
-- [ ] **Custom scoring profiles** for different use cases
-- [ ] **API quality database** for industry benchmarks
-- [ ] **Web interface** for interactive analysis
-
-## Common Challenges & Solutions
-
-### OpenAPI Complexity
-**Challenge**: Handling different OpenAPI versions and edge cases
-**Solutions**:
-- Use established validation libraries
-- Focus on common patterns first
-- Provide graceful fallbacks for edge cases
-- Test with diverse API specifications
-
-### Scoring Subjectivity
-**Challenge**: Determining what makes an API "agent-ready"
-**Solutions**:
-- Research best practices from AI/agent communities
-- Test with actual agent usage scenarios
-- Make scoring criteria configurable
-- Gather feedback from agent developers
-
-### Performance with Large APIs
-**Challenge**: Processing very large API specifications
-**Solutions**:
-- Implement efficient parsing strategies
-- Add progress indicators for long operations
-- Consider caching for repeated analysis
-- Optimize data structures for speed
-
-## Quality Scoring Framework
-
-### Documentation Quality (25 points)
-- **Operation descriptions** (8 points) - Clear, helpful descriptions
-- **Parameter descriptions** (7 points) - All parameters documented
-- **Examples** (5 points) - Request/response examples provided
-- **Summary quality** (5 points) - Good summary and tag usage
-
-### Schema Completeness (25 points)
-- **Request schemas** (8 points) - Complete request body definitions
-- **Response schemas** (8 points) - All response codes have schemas
-- **Parameter types** (5 points) - Proper type definitions
-- **Required fields** (4 points) - Clear required field specifications
-
-### Error Handling (20 points)
-- **Error responses** (8 points) - 4xx/5xx responses documented
-- **Error schemas** (6 points) - Error response structures defined
-- **Status code coverage** (4 points) - Comprehensive status codes
-- **Error examples** (2 points) - Example error responses
-
-### Agent Usability (20 points)
-- **Operation naming** (6 points) - Clear, consistent operation IDs
-- **Discoverability** (5 points) - Good tags and organization
-- **Complexity** (5 points) - Reasonable operation complexity
-- **Consistency** (4 points) - Consistent naming and patterns
-
-### Authentication Clarity (10 points)
-- **Security schemes** (4 points) - Complete auth documentation
-- **Auth examples** (3 points) - Clear authentication examples
-- **Scope definitions** (2 points) - Well-defined OAuth scopes
-- **Auth flow docs** (1 point) - Clear flow documentation
-
-## Getting Help
-
-### Quick Testing Commands
-```bash
-# Test basic functionality
-python -c "from scorecard.parser import OpenAPIParser; parser = OpenAPIParser(); print('✅ Parser works')"
-
-# Test scoring engine
-python test_scoring.py
-
-# Validate against known good/bad APIs
-python validate_scoring.py
-```
-
-### Support Resources
-- **OpenAPI Specification**: Official documentation and examples
-- **Discord Support**: #summer-hackathon for real-time help
-- **Example APIs**: Use Jentic Public APIs repository for test cases
-- **Agent Community**: Feedback from actual agent developers
-
-## Extension Ideas
-
-Once you have a working basic implementation:
-- **Create quality badges** for APIs (like build status badges)
-- **Build a web service** for online API analysis
-- **Integrate with GitHub Actions** for automatic PR quality checks
-- **Develop quality improvement tools** that auto-fix common issues
-- **Create industry benchmarks** by analyzing popular APIs
-- **Build agent testing framework** to validate quality predictions
-
-## Success Criteria
-
-Your scorecard succeeds when:
-1. **Accurately identifies quality issues** in real API specifications
-2. **Provides actionable recommendations** that improve agent usability
-3. **Handles diverse APIs** across different domains and complexities
-4. **Generates useful reports** that guide API improvement efforts
-5. **Helps the community** build better, more agent-friendly APIs
-
-## Real-World Impact
-
-This tool addresses important needs:
-- **API developers** get guidance on making APIs agent-friendly
-- **Agent builders** can quickly assess API suitability
-- **The ecosystem** improves as APIs become more standardized
-- **Documentation quality** increases across the industry
-
-Remember: **Start with basic scoring**, validate with known examples, then add sophistication. The goal is to create a practical tool that genuinely helps improve API quality for AI agents!
